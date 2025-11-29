@@ -194,10 +194,6 @@ paths:
             schema:
               allOf:
               - "$ref": "#/components/schemas/Acknowledgealistofnotifications"
-              - example:
-                  notificationIds:
-                  - 50dca3fc-c37c-4f03-b719-63571333624c
-                  - 86bb5f82-452e-49c8-88af-1f321d573960
             example:
               notificationIds:
               - 50dca3fc-c37c-4f03-b719-63571333624c
