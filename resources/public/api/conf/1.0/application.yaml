@@ -165,7 +165,7 @@ paths:
                     }
       deprecated: false
       security:
-        - applicationRestricted:
+        - Application-Restricted:
             - read:pull-notifications
   "/misc/push-pull-notification/box/{boxId}/notifications/acknowledge":
     put:
@@ -280,12 +280,12 @@ paths:
                     }
       deprecated: false
       security:
-        - applicationRestricted:
+        - Application-Restricted:
             - write:notifications
 
 components:
   securitySchemes:
-    applicationRestricted:
+    Application-Restricted:
       type: oauth2
       description: |
         HMRC supports OAuth 2.0 for authenticating user-restricted API requests using an OAuth 2.0 Bearer Token in the
