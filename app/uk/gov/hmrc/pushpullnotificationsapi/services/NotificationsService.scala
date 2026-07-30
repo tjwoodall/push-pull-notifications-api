@@ -23,7 +23,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import uk.gov.hmrc.http.HeaderCarrier
 
 import uk.gov.hmrc.apiplatform.modules.common.domain.models.ClientId
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{MessageContentType, Notification, NotificationId, NotificationStatus}
 import uk.gov.hmrc.pushpullnotificationsapi.repository.{BoxRepository, NotificationsRepository}
 import uk.gov.hmrc.pushpullnotificationsapi.util.ApplicationLogger
@@ -34,14 +34,14 @@ class NotificationsService @Inject() (
     notificationsRepository: NotificationsRepository,
     pushService: NotificationPushService,
     confirmationService: ConfirmationService
-  )(implicit ec: ExecutionContext)
+  )(using ExecutionContext)
     extends ApplicationLogger {
 
   def acknowledgeNotifications(
       boxId: BoxId,
       clientId: ClientId,
       request: AcknowledgeNotificationsRequest
-    )(implicit hc: HeaderCarrier
+    )(using HeaderCarrier
     ): Future[AcknowledgeNotificationsServiceResult] = {
     boxRepository.findByBoxId(boxId)
       .flatMap {
@@ -54,7 +54,7 @@ class NotificationsService @Inject() (
                   .foreach(confirmationService.handleConfirmation)
                 result
               })
-              .map(AcknowledgeNotificationsSuccessUpdatedResult)
+              .map(AcknowledgeNotificationsSuccessUpdatedResult(_))
           } else {
             Future.successful(AcknowledgeNotificationsServiceUnauthorisedResult("clientId does not match boxCreator"))
           }
@@ -88,7 +88,7 @@ class NotificationsService @Inject() (
       notificationId: NotificationId,
       contentType: MessageContentType,
       message: String
-    )(implicit hc: HeaderCarrier
+    )(using HeaderCarrier
     ): Future[NotificationCreateServiceResult] = {
     boxRepository.findByBoxId(boxId)
       .flatMap {

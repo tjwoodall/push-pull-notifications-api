@@ -19,11 +19,12 @@ package uk.gov.hmrc.pushpullnotificationsapi.repository
 import java.net.URL
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
+import scala.concurrent.ExecutionContext
 
 import com.mongodb.client.result.InsertOneResult
 import org.apache.pekko.stream.scaladsl.Sink
 import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.model.Filters.{equal => mongoEqual}
+import org.mongodb.scala.model.Filters.equal as mongoEqual
 import org.scalatest.concurrent.IntegrationPatience
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.play.guice.GuiceOneAppPerSuite
@@ -37,9 +38,9 @@ import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, PlayMongoRepositoryS
 import uk.gov.hmrc.apiplatform.modules.common.utils.FixedClock
 import uk.gov.hmrc.pushpullnotificationsapi.AsyncHmrcSpec
 import uk.gov.hmrc.pushpullnotificationsapi.models.ConfirmationId
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.ConfirmationStatus._
+import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.ConfirmationStatus.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{ConfirmationStatus, NotificationId}
-import uk.gov.hmrc.pushpullnotificationsapi.repository.models.PlayHmrcMongoFormatters._
+import uk.gov.hmrc.pushpullnotificationsapi.repository.models.PlayHmrcMongoFormatters.given
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.{ConfirmationRequest, ConfirmationRequestDB}
 
 class ConfirmationRepositoryISpec
@@ -68,9 +69,13 @@ class ConfirmationRepositoryISpec
     notificationId,
     List.empty,
     ConfirmationStatus.PENDING,
-    instant
+    instant,
+    None,
+    None
   )
   override implicit lazy val app: Application = appBuilder.build()
+
+  given ExecutionContext = app.injector.instanceOf[ExecutionContext]
 
   override def beforeEach(): Unit = {
     prepareDatabase()
@@ -81,21 +86,21 @@ class ConfirmationRepositoryISpec
   def repo: ConfirmationRepository = repository.asInstanceOf[ConfirmationRepository]
 
   def saveMongoJsonWithBadUrl(input: ConfirmationRequest): InsertOneResult = {
-    import play.api.libs.json._
+    import play.api.libs.json.*
 
     val rawJson = Json.toJson(input.toDB).as[JsObject]
     val editedJson: JsObject = rawJson + ("confirmationUrl" -> JsString("BOB"))
 
-    await(mongoDatabase.getCollection("confirmations").insertOne(Document(editedJson.toString())).toFuture())
+    await(mongoDatabase.getCollection("confirmations").insertOne(Document(editedJson.toString())).head())
   }
 
   def saveMongoJsonWithNoPrivateHeadersField(input: ConfirmationRequest): InsertOneResult = {
-    import play.api.libs.json._
+    import play.api.libs.json.*
 
     val rawJson = Json.toJson(input.toDB).as[JsObject]
     val editedJson: JsObject = rawJson - "privateHeaders"
 
-    await(mongoDatabase.getCollection("confirmations").insertOne(Document(editedJson.toString())).toFuture())
+    await(mongoDatabase.getCollection("confirmations").insertOne(Document(editedJson.toString())).head())
   }
 
   "handle a bad URL accordingly" should {
@@ -174,7 +179,8 @@ class ConfirmationRepositoryISpec
 
     def createConfirmationInDb(status: ConfirmationStatus, retryAfterDateTime: Option[Instant] = None) = {
       val id = ConfirmationId.random
-      val confirmation = ConfirmationRequest(id, url, NotificationId.random, List.empty, status, pushedDateTime = Some(instant), retryAfterDateTime = retryAfterDateTime)
+      val confirmation =
+        ConfirmationRequest(id, url, NotificationId.random, List.empty, status, createdDateTime = instant, pushedDateTime = Some(instant), retryAfterDateTime = retryAfterDateTime)
       val result = await(repo.saveConfirmationRequest(confirmation))
       result shouldBe Some(id)
       confirmation

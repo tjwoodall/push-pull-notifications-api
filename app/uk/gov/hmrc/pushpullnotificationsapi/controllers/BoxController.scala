@@ -20,14 +20,14 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
-import play.api.libs.json._
-import play.api.mvc._
+import play.api.libs.json.*
+import play.api.mvc.*
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import uk.gov.hmrc.apiplatform.modules.common.domain.models.ClientId
 import uk.gov.hmrc.pushpullnotificationsapi.controllers.actionbuilders.ValidateUserAgentHeaderAction
-import uk.gov.hmrc.pushpullnotificationsapi.models.ResponseFormatters._
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
+import uk.gov.hmrc.pushpullnotificationsapi.models.ResponseFormatters.given
 import uk.gov.hmrc.pushpullnotificationsapi.services.BoxService
 import uk.gov.hmrc.pushpullnotificationsapi.util.ApplicationLogger
 
@@ -37,7 +37,7 @@ class BoxController @Inject() (
     boxService: BoxService,
     cc: ControllerComponents,
     playBodyParsers: PlayBodyParsers
-  )(implicit val ec: ExecutionContext)
+  )(using ExecutionContext)
     extends BackendController(cc)
     with ApplicationLogger {
 
@@ -46,9 +46,9 @@ class BoxController @Inject() (
       validateUserAgentHeaderAction)
       .async(playBodyParsers.json) { implicit request =>
         withJsonBody[CreateBoxRequest] {
-          box: CreateBoxRequest =>
+          (box: CreateBoxRequest) =>
             if (box.boxName.isEmpty || box.clientId.value.isEmpty) {
-              Future.successful(BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "Expecting boxName and clientId in request body")))
+              Future.successful(BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "Expecting boxName and clientId in request body")))
             } else {
               boxService.createBox(box.clientId, box.boxName).map {
                 case r: BoxCreatedResult      => Created(Json.toJson(CreateBoxResponse(r.box.boxId)))
@@ -56,7 +56,7 @@ class BoxController @Inject() (
                   Ok(Json.toJson(CreateBoxResponse(r.box.boxId)))
                 case r: BoxCreateFailedResult =>
                   logger.error(s"Unable to create Box: ${r.message}")
-                  UnprocessableEntity(JsErrorResponse(ErrorCode.UNKNOWN_ERROR, s"unable to createBox:${r.message}"))
+                  UnprocessableEntity(JsErrorResponse(ErrorCode.UnknownError, s"unable to createBox:${r.message}"))
               }
             }
         } recover recovery
@@ -66,14 +66,14 @@ class BoxController @Inject() (
     ((boxName, clientId) match {
       case (Some(boxName), Some(clientId)) => getBoxByNameAndClientId(boxName, clientId)
       case (None, None)                    => boxService.getAllBoxes().map(boxes => Ok(Json.toJson(boxes)))
-      case _ => Future.successful(BadRequest(JsErrorResponse(ErrorCode.BAD_REQUEST, s"Must specify both boxName and clientId query parameters or neither")))
+      case _ => Future.successful(BadRequest(JsErrorResponse(ErrorCode.BadRequest, s"Must specify both boxName and clientId query parameters or neither")))
     }) recover recovery
   }
 
   private def getBoxByNameAndClientId(boxName: String, clientId: ClientId): Future[Result] = {
     boxService.getBoxByNameAndClientId(boxName, clientId) map {
       case Some(box) => Ok(Json.toJson(box))
-      case None      => NotFound(JsErrorResponse(ErrorCode.BOX_NOT_FOUND, "Box not found"))
+      case None      => NotFound(JsErrorResponse(ErrorCode.BoxNotFound, "Box not found"))
     }
   }
 
@@ -83,27 +83,27 @@ class BoxController @Inject() (
       .async(playBodyParsers.json) { implicit request =>
         withJsonBody[UpdateCallbackUrlRequest] { addCallbackUrlRequest =>
           if (addCallbackUrlRequest.isInvalid) {
-            Future.successful(BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "clientId is required")))
+            Future.successful(BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "clientId is required")))
           } else {
             boxService.updateCallbackUrl(boxId, addCallbackUrlRequest) map {
               case _: CallbackUrlUpdated                  => Ok(Json.toJson(UpdateCallbackUrlResponse(successful = true)))
               case c: CallbackValidationFailed            => Ok(Json.toJson(UpdateCallbackUrlResponse(successful = false, Some(c.errorMessage))))
               case u: UnableToUpdateCallbackUrl           => Ok(Json.toJson(UpdateCallbackUrlResponse(successful = false, Some(u.errorMessage))))
-              case _: BoxIdNotFound                       => NotFound(JsErrorResponse(ErrorCode.BOX_NOT_FOUND, "Box not found"))
-              case _: UpdateCallbackUrlUnauthorisedResult => Unauthorized(JsErrorResponse(ErrorCode.UNAUTHORISED, "Client Id did not match"))
+              case _: BoxIdNotFound                       => NotFound(JsErrorResponse(ErrorCode.BoxNotFound, "Box not found"))
+              case _: UpdateCallbackUrlUnauthorisedResult => Unauthorized(JsErrorResponse(ErrorCode.Unauthorised, "Client Id did not match"))
             } recover recovery
           }
         }
       }
 
-  override protected def withJsonBody[T](f: T => Future[Result])(implicit request: Request[JsValue], ct: ClassTag[T], reads: Reads[T]): Future[Result] =
+  override protected def withJsonBody[T](f: T => Future[Result])(using request: Request[JsValue], ct: ClassTag[T], reads: Reads[T]): Future[Result] =
     withJson(request.body)(f)
 
-  private def withJson[T](json: JsValue)(f: T => Future[Result])(implicit reads: Reads[T]): Future[Result] = {
+  private def withJson[T](json: JsValue)(f: T => Future[Result])(using reads: Reads[T]): Future[Result] = {
     json.validate[T] match {
       case JsSuccess(payload, _) => f(payload)
       case JsError(_)            =>
-        Future.successful(BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "JSON body is invalid against expected format")))
+        Future.successful(BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "JSON body is invalid against expected format")))
     }
   }
 }

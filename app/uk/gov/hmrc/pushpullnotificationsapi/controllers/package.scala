@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
 
 import _root_.play.api.Logger
 import _root_.play.api.mvc.Result
-import _root_.play.api.mvc.Results._
+import _root_.play.api.mvc.Results.*
 
 import uk.gov.hmrc.pushpullnotificationsapi.models.{ErrorCode, JsErrorResponse}
 
@@ -30,6 +30,6 @@ package object controllers {
   def recovery: PartialFunction[Throwable, Result] = {
     case NonFatal(e) =>
       logger.error("An unexpected error occurred:", e)
-      InternalServerError(JsErrorResponse(ErrorCode.UNKNOWN_ERROR, s"An unexpected error occurred:${e.getMessage}"))
+      InternalServerError(JsErrorResponse(ErrorCode.UnknownError, s"An unexpected error occurred:${e.getMessage}"))
   }
 }

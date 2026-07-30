@@ -21,14 +21,14 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future.successful
 
-import play.api.libs.json._
-import play.api.mvc._
+import play.api.libs.json.*
+import play.api.mvc.*
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import uk.gov.hmrc.apiplatform.modules.common.services.EitherTHelper
 import uk.gov.hmrc.pushpullnotificationsapi.config.AppConfig
 import uk.gov.hmrc.pushpullnotificationsapi.controllers.actionbuilders.ValidateUserAgentHeaderAction
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationId
 import uk.gov.hmrc.pushpullnotificationsapi.services.{ConfirmationService, NotificationsService}
 
@@ -40,7 +40,7 @@ class WrappedNotificationsController @Inject() (
     validateUserAgentHeaderAction: ValidateUserAgentHeaderAction,
     cc: ControllerComponents,
     playBodyParsers: PlayBodyParsers
-  )(implicit val ec: ExecutionContext)
+  )(using ExecutionContext)
     extends BackendController(cc)
     with NotificationUtils
     with WithJsonBodyWithBadRequest {
@@ -64,27 +64,27 @@ class WrappedNotificationsController @Inject() (
                   case _: ConfirmationCreateServiceSuccessResult =>
                     Created(Json.toJson(CreateWrappedNotificationResponse(notificationId, confirmationId)))
                   case _: ConfirmationCreateServiceFailedResult  =>
-                    InternalServerError(JsErrorResponse(ErrorCode.DUPLICATE_CONFIRMATION, "Unable to save Confirmation: duplicate found"))
+                    InternalServerError(JsErrorResponse(ErrorCode.DuplicateConfirmation, "Unable to save Confirmation: duplicate found"))
                 }
             }
           }
 
           (
             for {
-              _ <- ET.cond(request.version == "1", (), BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "Message version is invalid")))
+              _ <- ET.cond(request.version == "1", (), BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "Message version is invalid")))
               _ <- ET.cond(
                      ifConfirmationUrlExistsItMustBeHttps(request.confirmationUrl),
                      (),
-                     BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "Confirmation URL must have https protocol"))
+                     BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "Confirmation URL must have https protocol"))
                    )
-              _ <- ET.cond(request.privateHeaders.length <= 5, (), BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "Request contains more than 5 private headers")))
+              _ <- ET.cond(request.privateHeaders.length <= 5, (), BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "Request contains more than 5 private headers")))
               messageContentType <- ET.fromOption(
                                       contentTypeHeaderToNotificationType(request.notification.contentType),
-                                      UnsupportedMediaType(JsErrorResponse(ErrorCode.BAD_REQUEST, "Content Type not Supported"))
+                                      UnsupportedMediaType(JsErrorResponse(ErrorCode.BadRequest, "Content Type not Supported"))
                                     )
               body = request.notification.body
               isValidBody = validateBodyAgainstContentType(messageContentType, body)
-              messageBody <- ET.cond(isValidBody, body, BadRequest(JsErrorResponse(ErrorCode.INVALID_REQUEST_PAYLOAD, "Message syntax is invalid")))
+              messageBody <- ET.cond(isValidBody, body, BadRequest(JsErrorResponse(ErrorCode.InvalidRequestPayload, "Message syntax is invalid")))
               result <- ET.liftF(processNotification(boxId, messageContentType, messageBody)(handleNotification))
             } yield result
           ).merge

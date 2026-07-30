@@ -20,8 +20,7 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 import com.mongodb.client.model.ReturnDocument
-import org.apache.pekko.stream.Materializer
-import org.mongodb.scala.model.Filters._
+import org.mongodb.scala.model.Filters.*
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndUpdateOptions, IndexModel, IndexOptions, Updates}
 
@@ -29,18 +28,17 @@ import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import uk.gov.hmrc.apiplatform.modules.common.domain.models.ClientId
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.DbClient.{fromClient, toClient}
-import uk.gov.hmrc.pushpullnotificationsapi.repository.models.PlayHmrcMongoFormatters.dbClientFormatter
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.{DbClient, DbClientSecret}
 import uk.gov.hmrc.pushpullnotificationsapi.services.LocalCrypto
 
 @Singleton
-class ClientRepository @Inject() (mongo: MongoComponent, crypto: LocalCrypto)(implicit ec: ExecutionContext, val mat: Materializer)
+class ClientRepository @Inject() (mongo: MongoComponent, crypto: LocalCrypto)(using ExecutionContext)
     extends PlayMongoRepository[DbClient](
       collectionName = "client",
       mongoComponent = mongo,
-      domainFormat = dbClientFormatter,
+      domainFormat = DbClient.given_OFormat_DbClient,
       indexes = Seq(
         IndexModel(
           ascending("id"),
@@ -51,8 +49,8 @@ class ClientRepository @Inject() (mongo: MongoComponent, crypto: LocalCrypto)(im
         )
       ),
       extraCodecs = Seq(
-        Codecs.playFormatCodec(ClientId.format),
-        Codecs.playFormatCodec(DbClientSecret.format)
+        Codecs.playFormatCodec(ClientId.given_Format_ClientId),
+        Codecs.playFormatCodec(DbClientSecret.given_OFormat_DbClientSecret)
       )
     ) {
   override lazy val requiresTtlIndex: Boolean = false

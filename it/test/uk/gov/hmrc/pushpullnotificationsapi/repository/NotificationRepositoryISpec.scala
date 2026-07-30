@@ -19,24 +19,27 @@ package uk.gov.hmrc.pushpullnotificationsapi.repository
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 import org.apache.pekko.stream.Materializer
 import org.mongodb.scala.Document
+import org.mongodb.scala.bson.BsonString
 import org.scalatest.concurrent.IntegrationPatience
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.play.guice.GuiceOneAppPerSuite
 
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
+import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits.ObservableFuture
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import uk.gov.hmrc.apiplatform.modules.common.domain.models.ClientId
 import uk.gov.hmrc.apiplatform.modules.common.utils.FixedClock
 import uk.gov.hmrc.pushpullnotificationsapi.AsyncHmrcSpec
-import uk.gov.hmrc.pushpullnotificationsapi.models._
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.MessageContentType.APPLICATION_JSON
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationStatus._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
+import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.MessageContentType.*
+import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationStatus.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{Notification, NotificationId, NotificationStatus}
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.DbNotification
 
@@ -64,7 +67,9 @@ class NotificationRepositoryISpec
       )
 
   override implicit lazy val app: Application = appBuilder.build()
-  implicit def mat: Materializer = app.injector.instanceOf[Materializer]
+  given ExecutionContext = app.injector.instanceOf[ExecutionContext]
+
+  given Materializer = app.injector.instanceOf[Materializer]
 
   def repo: NotificationsRepository = app.injector.instanceOf[NotificationsRepository]
   def boxRepo: BoxRepository = app.injector.instanceOf[BoxRepository]
@@ -77,9 +82,15 @@ class NotificationRepositoryISpec
   }
 
   def getIndex(indexName: String): Option[Document] = {
-    await(repo.collection.listIndexes()
-      .filter(_.getString("name").equalsIgnoreCase(indexName))
-      .headOption())
+    await(
+      repo.collection.listIndexes()
+        .filter(
+          _.get[BsonString]("name")
+            .map(bs => bs.getValue)
+            .fold[Boolean](false)(_.equalsIgnoreCase(indexName))
+        )
+        .headOption()
+    )
   }
 
   private val boxIdStr = UUID.randomUUID().toString

@@ -20,7 +20,7 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 import play.api.http.HeaderNames
-import play.api.mvc.Results._
+import play.api.mvc.Results.*
 import play.api.mvc.{ActionFilter, Request, Result}
 import uk.gov.hmrc.http.HttpErrorFunctions
 
@@ -28,7 +28,7 @@ import uk.gov.hmrc.pushpullnotificationsapi.config.AppConfig
 import uk.gov.hmrc.pushpullnotificationsapi.models.{ErrorCode, JsErrorResponse}
 
 @Singleton
-class ValidateAuthorizationHeaderAction @Inject() (appConfig: AppConfig)(implicit ec: ExecutionContext) extends ActionFilter[Request] with HttpErrorFunctions {
+class ValidateAuthorizationHeaderAction @Inject() (appConfig: AppConfig)(using ec: ExecutionContext) extends ActionFilter[Request] with HttpErrorFunctions {
 
   override def executionContext: ExecutionContext = ec
 
@@ -36,7 +36,7 @@ class ValidateAuthorizationHeaderAction @Inject() (appConfig: AppConfig)(implici
     val authHeader = request.headers.get(HeaderNames.AUTHORIZATION).getOrElse("")
 
     if (!authHeader.isEmpty && authHeader == appConfig.authorizationToken) Future.successful(None)
-    else Future.successful(Some(Forbidden(JsErrorResponse(ErrorCode.FORBIDDEN, "Authorisation failed"))))
+    else Future.successful(Some(Forbidden(JsErrorResponse(ErrorCode.Forbidden, "Authorisation failed"))))
 
   }
 }

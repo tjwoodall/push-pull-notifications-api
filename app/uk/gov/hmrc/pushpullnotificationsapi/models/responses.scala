@@ -17,42 +17,40 @@
 package uk.gov.hmrc.pushpullnotificationsapi.models
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json.{JsObject, Json, OFormat}
 
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationStatus.PENDING
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{MessageContentType, Notification, NotificationId, NotificationStatus}
 
 case class CreateBoxResponse(boxId: BoxId)
 
 object CreateBoxResponse {
-  implicit val format: OFormat[CreateBoxResponse] = Json.format[CreateBoxResponse]
+  given OFormat[CreateBoxResponse] = Json.format[CreateBoxResponse]
 }
 
 case class CreateNotificationResponse(notificationId: NotificationId)
 
 object CreateNotificationResponse {
-  implicit val format: OFormat[CreateNotificationResponse] = Json.format[CreateNotificationResponse]
+  given OFormat[CreateNotificationResponse] = Json.format[CreateNotificationResponse]
 }
 
 case class CreateWrappedNotificationResponse(notificationId: NotificationId, confirmationId: ConfirmationId)
 
 object CreateWrappedNotificationResponse {
-  implicit val format: OFormat[CreateWrappedNotificationResponse] = Json.format[CreateWrappedNotificationResponse]
+  given OFormat[CreateWrappedNotificationResponse] = Json.format[CreateWrappedNotificationResponse]
 }
 
 case class UpdateCallbackUrlResponse(successful: Boolean, errorMessage: Option[String] = None)
 
 object UpdateCallbackUrlResponse {
-  implicit val format: OFormat[UpdateCallbackUrlResponse] = Json.format[UpdateCallbackUrlResponse]
+  given OFormat[UpdateCallbackUrlResponse] = Json.format[UpdateCallbackUrlResponse]
 }
 
 case class ValidateBoxOwnershipResponse(valid: Boolean)
 
 object ValidateBoxOwnershipResponse {
-  implicit val format: OFormat[ValidateBoxOwnershipResponse] = Json.format[ValidateBoxOwnershipResponse]
+  given OFormat[ValidateBoxOwnershipResponse] = Json.format[ValidateBoxOwnershipResponse]
 }
 
 case class NotificationResponse(
@@ -60,15 +58,15 @@ case class NotificationResponse(
     boxId: BoxId,
     messageContentType: MessageContentType,
     message: String,
-    status: NotificationStatus = PENDING,
-    createdDateTime: Instant = Instant.now.truncatedTo(ChronoUnit.MILLIS),
-    readDateTime: Option[Instant] = None,
-    pushedDateTime: Option[Instant] = None)
+    status: NotificationStatus,
+    createdDateTime: Instant,
+    readDateTime: Option[Instant],
+    pushedDateTime: Option[Instant])
 
 object NotificationResponse {
   import uk.gov.hmrc.pushpullnotificationsapi.util.PPNSInstantFormatter.instantWrites
 
-  implicit val nfFormat: OFormat[NotificationResponse] = Json.format[NotificationResponse]
+  given OFormat[NotificationResponse] = Json.format[NotificationResponse]
 
   def fromNotification(notification: Notification): NotificationResponse = {
 
@@ -85,30 +83,30 @@ object NotificationResponse {
   }
 }
 
-object ErrorCode extends Enumeration {
-  type ErrorCode = Value
-  val ACCEPT_HEADER_INVALID = Value("ACCEPT_HEADER_INVALID")
-  val BAD_REQUEST = Value("BAD_REQUEST")
-  val BOX_NOT_FOUND = Value("BOX_NOT_FOUND")
-  val CLIENT_NOT_FOUND = Value("CLIENT_NOT_FOUND")
-  val DUPLICATE_BOX = Value("DUPLICATE_BOX")
-  val DUPLICATE_NOTIFICATION = Value("DUPLICATE_NOTIFICATION")
-  val DUPLICATE_CONFIRMATION = Value("DUPLICATE_CONFIRMATION")
-  val FORBIDDEN = Value("FORBIDDEN")
-  val INVALID_ACCEPT_HEADER = Value("INVALID_ACCEPT_HEADER")
-  val INVALID_CONTENT_TYPE = Value("INVALID_CONTENT_TYPE")
-  val INVALID_REQUEST_PAYLOAD = Value("INVALID_REQUEST_PAYLOAD")
-  val NOT_FOUND = Value("NOT_FOUND")
-  val UNAUTHORISED = Value("UNAUTHORISED")
-  val UNKNOWN_ERROR = Value("UNKNOWN_ERROR")
+enum ErrorCode {
 
+  case AcceptHeaderInvalid,
+    BadRequest,
+    BoxNotFound,
+    ClientNotFound,
+    DuplicateBox,
+    DuplicateNotification,
+    DuplicateConfirmation,
+    Forbidden,
+    InvalidAcceptHeader,
+    InvalidContentType,
+    InvalidRequestPayload,
+    NotFound,
+    Unauthorised,
+    UnknownError,
 }
 
 object JsErrorResponse {
+  import uk.gov.hmrc.apiplatform.modules.common.domain.services.EnumJsonHelper.*
 
-  def apply(errorCode: ErrorCode.Value, message: JsValueWrapper): JsObject =
+  def apply(errorCode: ErrorCode, message: JsValueWrapper): JsObject =
     Json.obj(
-      "code" -> errorCode.toString,
+      "code" -> errorCode.asScreamingSnakeCase,
       "message" -> message
     )
 }

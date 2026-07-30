@@ -28,13 +28,13 @@ import uk.gov.hmrc.pushpullnotificationsapi.connectors.ApiPlatformEventsConnecto
 import uk.gov.hmrc.pushpullnotificationsapi.mocks.connectors.{ApiPlatformEventsConnectorMockModule, ThirdPartyApplicationConnectorMockModule}
 import uk.gov.hmrc.pushpullnotificationsapi.mocks.repository.BoxRepositoryMockModule
 import uk.gov.hmrc.pushpullnotificationsapi.mocks.{ClientServiceMockModule, PushServiceMockModule}
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.SubscriptionType.API_PUSH_SUBSCRIBER
-import uk.gov.hmrc.pushpullnotificationsapi.models._
 import uk.gov.hmrc.pushpullnotificationsapi.testData.TestData
 
 class BoxServiceSpec extends AsyncHmrcSpec with TestData {
 
-  implicit val hc: HeaderCarrier = HeaderCarrier()
+  given HeaderCarrier = HeaderCarrier()
 
   def updateSubscribersRequestWithId(subtype: SubscriptionType): UpdateSubscriberRequest =
     UpdateSubscriberRequest(SubscriberRequest(callBackUrl = endpoint, subscriberType = subtype))

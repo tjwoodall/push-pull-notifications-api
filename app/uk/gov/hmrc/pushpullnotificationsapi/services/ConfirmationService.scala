@@ -17,6 +17,7 @@
 package uk.gov.hmrc.pushpullnotificationsapi.services
 
 import java.net.URL
+import java.time.Clock
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future.successful
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,30 +25,31 @@ import scala.util.control.NonFatal
 
 import uk.gov.hmrc.http.HeaderCarrier
 
+import uk.gov.hmrc.apiplatform.modules.common.services.ClockNow
 import uk.gov.hmrc.pushpullnotificationsapi.connectors.ConfirmationConnector
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{ConfirmationStatus, NotificationId, NotificationStatus, OutboundConfirmation}
 import uk.gov.hmrc.pushpullnotificationsapi.repository.ConfirmationRepository
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.ConfirmationRequest
 import uk.gov.hmrc.pushpullnotificationsapi.util.ApplicationLogger
 
 @Singleton
-class ConfirmationService @Inject() (repository: ConfirmationRepository, connector: ConfirmationConnector) extends ApplicationLogger {
+class ConfirmationService @Inject() (repository: ConfirmationRepository, connector: ConfirmationConnector, val clock: Clock) extends ApplicationLogger with ClockNow {
 
   def saveConfirmationRequest(
       confirmationId: ConfirmationId,
       confirmationUrl: URL,
       notificationId: NotificationId,
       privateHeaders: List[PrivateHeader]
-    )(implicit ec: ExecutionContext
+    )(using ExecutionContext
     ): Future[ConfirmationCreateServiceResult] = {
-    repository.saveConfirmationRequest(ConfirmationRequest(confirmationId, confirmationUrl, notificationId, privateHeaders)).map {
+    repository.saveConfirmationRequest(ConfirmationRequest(confirmationId, confirmationUrl, notificationId, privateHeaders, ConfirmationStatus.PENDING, instant, None, None)).map {
       case Some(_) => ConfirmationCreateServiceSuccessResult()
       case None    => ConfirmationCreateServiceFailedResult("unable to create confirmation request duplicate found")
     }
   }
 
-  def handleConfirmation(notificationId: NotificationId)(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Boolean] = {
+  def handleConfirmation(notificationId: NotificationId)(using HeaderCarrier, ExecutionContext): Future[Boolean] = {
     repository.updateConfirmationNeed(notificationId) map {
       case Some(confirmationRequest) =>
         sendConfirmation(confirmationRequest)
@@ -58,7 +60,7 @@ class ConfirmationService @Inject() (repository: ConfirmationRepository, connect
     }
   }
 
-  def sendConfirmation(request: ConfirmationRequest)(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Boolean] = {
+  def sendConfirmation(request: ConfirmationRequest)(using HeaderCarrier, ExecutionContext): Future[Boolean] = {
     try {
       connector.sendConfirmation(
         request.confirmationUrl,

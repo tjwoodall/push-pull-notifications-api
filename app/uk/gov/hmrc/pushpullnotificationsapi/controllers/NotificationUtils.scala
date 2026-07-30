@@ -18,7 +18,7 @@ package uk.gov.hmrc.pushpullnotificationsapi.controllers
 
 import scala.concurrent.Future.successful
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util._
+import scala.util.*
 import scala.xml.NodeSeq
 
 import play.api.libs.json.{JsValue, Json}
@@ -27,12 +27,11 @@ import play.api.mvc.Results.{InternalServerError, NotFound}
 import play.mvc.Http.MimeTypes
 import uk.gov.hmrc.http.HeaderCarrier
 
-import uk.gov.hmrc.pushpullnotificationsapi.models._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{MessageContentType, NotificationId}
 import uk.gov.hmrc.pushpullnotificationsapi.services.NotificationsService
 
-trait NotificationUtils {
-  implicit val ec: ExecutionContext
+trait NotificationUtils(using ExecutionContext) {
   def notificationsService: NotificationsService
 
   protected def contentTypeHeaderToNotificationType(contentType: String): Option[MessageContentType] = {
@@ -48,15 +47,15 @@ trait NotificationUtils {
       contentType: MessageContentType,
       message: String
     )(fn: (NotificationId) => Future[Result]
-    )(implicit hc: HeaderCarrier
+    )(using HeaderCarrier
     ): Future[Result] = {
     val notificationId = NotificationId.random
 
     notificationsService.saveNotification(boxId, notificationId, contentType, message) flatMap {
       case _: NotificationCreateSuccessResult             => fn(notificationId)
-      case _: NotificationCreateFailedBoxIdNotFoundResult => successful(NotFound(JsErrorResponse(ErrorCode.BOX_NOT_FOUND, "Box not found")))
+      case _: NotificationCreateFailedBoxIdNotFoundResult => successful(NotFound(JsErrorResponse(ErrorCode.BoxNotFound, "Box not found")))
       case _: NotificationCreateFailedDuplicateResult     =>
-        successful(InternalServerError(JsErrorResponse(ErrorCode.DUPLICATE_NOTIFICATION, "Unable to save Notification: duplicate found")))
+        successful(InternalServerError(JsErrorResponse(ErrorCode.DuplicateNotification, "Unable to save Notification: duplicate found")))
     } recover recovery
   }
 

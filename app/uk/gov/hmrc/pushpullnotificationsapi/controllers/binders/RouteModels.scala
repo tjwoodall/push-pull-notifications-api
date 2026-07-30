@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 HM Revenue & Customs
+ * Copyright 2026 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.pushpullnotificationsapi.scheduling
+package uk.gov.hmrc.pushpullnotificationsapi.controllers.binders
 
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import uk.gov.hmrc.apiplatform.modules.common.domain.models.ClientId
 
-trait ScheduledJob {
-  def name: String
-  def execute(using ExecutionContext): Future[String]
-  def isEnabled: Boolean
+object RouteModels {
+  type SimpleClientId = String
 
-  def configKey: String = name
+  object Conversions {
 
-  def initialDelay: FiniteDuration
+    given Conversion[SimpleClientId, ClientId] with
+      def apply(x: SimpleClientId): ClientId = ClientId(x)
 
-  def interval: FiniteDuration
+    given Conversion[Option[SimpleClientId], Option[ClientId]] with
+      def apply(x: Option[SimpleClientId]): Option[ClientId] = x.map(ClientId(_))
 
-  override def toString() = s"$name after $initialDelay every $interval"
+  }
 }

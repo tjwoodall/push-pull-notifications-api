@@ -5,7 +5,7 @@ lazy val appName = "push-pull-notifications-api"
 Global / bloopAggregateSourceDependencies := true
 Global / bloopExportJarClassifiers := Some(Set("sources"))
 
-ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / scalaVersion := "3.7.4"
 ThisBuild / majorVersion := 0
 ThisBuild / libraryDependencySchemes += "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
 ThisBuild / semanticdbEnabled := true
@@ -24,17 +24,19 @@ lazy val microservice = Project(appName, file("."))
     Compile / unmanagedResourceDirectories += baseDirectory.value / "resources",
     Test / unmanagedSourceDirectories += baseDirectory.value / "testcommon",
     Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-eT"),
+    Test / parallelExecution := false
   )
   .settings(
     routesImport ++= Seq(
-      "uk.gov.hmrc.pushpullnotificationsapi.models._",
-      "uk.gov.hmrc.pushpullnotificationsapi.controllers.Binders._",
-      "uk.gov.hmrc.apiplatform.modules.common.domain.models._"
+      "uk.gov.hmrc.pushpullnotificationsapi.models.*",
+      "uk.gov.hmrc.pushpullnotificationsapi.controllers.binders.*",
+      "uk.gov.hmrc.pushpullnotificationsapi.controllers.binders.RouteModels.*",
+      "uk.gov.hmrc.pushpullnotificationsapi.controllers.binders.RouteModels.Conversions.given",
+      "uk.gov.hmrc.apiplatform.modules.common.domain.models.*"
     )
   )
   .settings(
     scalacOptions ++= Seq(
-      "-Xlint:-missing-interpolator,_",
       // https://www.scala-lang.org/2021/01/12/configuring-and-suppressing-warnings.html
       // suppress warnings in generated routes files
       "-Wconf:src=routes/.*:s"

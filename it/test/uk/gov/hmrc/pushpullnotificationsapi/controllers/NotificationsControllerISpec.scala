@@ -20,6 +20,7 @@ import java.time.Instant
 import java.util.UUID
 import java.util.UUID.randomUUID
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterEach, Suite}
@@ -30,8 +31,10 @@ import play.api.http.Status
 import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json.{Format, JsSuccess, Json, Reads, Writes}
+import play.api.libs.ws.DefaultBodyReadables.readableAsString
 import play.api.libs.ws.{WSClient, WSResponse}
-import play.api.test.Helpers._
+import play.api.test.Helpers.*
+import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits.ObservableFuture
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, PlayMongoRepositorySupport}
 
@@ -42,7 +45,7 @@ import uk.gov.hmrc.pushpullnotificationsapi.models.{AcknowledgeNotificationsRequ
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.DbNotification
 import uk.gov.hmrc.pushpullnotificationsapi.repository.{BoxRepository, NotificationsRepository}
 import uk.gov.hmrc.pushpullnotificationsapi.services.ChallengeGenerator
-import uk.gov.hmrc.pushpullnotificationsapi.support._
+import uk.gov.hmrc.pushpullnotificationsapi.support.*
 
 class NotificationsControllerISpec
     extends ServerBaseISpec
@@ -57,7 +60,7 @@ class NotificationsControllerISpec
     with ApplicationWithCollaboratorsFixtures
     with Eventually {
 
-  this: Suite with ServerProvider =>
+  this: Suite & ServerProvider =>
 
   val expectedChallenge = randomUUID.toString
 
@@ -65,10 +68,12 @@ class NotificationsControllerISpec
     override def generateChallenge: String = expectedChallenge
   }
 
-  implicit val instantFormatter: Format[Instant] = Format(Reads.DefaultInstantReads, Writes.DefaultInstantWrites)
+  given Format[Instant] = Format(Reads.DefaultInstantReads, Writes.DefaultInstantWrites)
+
   def boxRepository: BoxRepository = app.injector.instanceOf[BoxRepository]
 
   def notificationRepo: NotificationsRepository = app.injector.instanceOf[NotificationsRepository]
+
   override protected val repository: PlayMongoRepository[DbNotification] = app.injector.instanceOf[NotificationsRepository]
 
   val boxName = "myboxName"
@@ -137,31 +142,33 @@ class NotificationsControllerISpec
 
   val wsClient: WSClient = app.injector.instanceOf[WSClient]
 
+  import play.api.libs.ws.DefaultBodyWritables.writeableOf_String
+
   def doPost(urlString: String, jsonBody: String, headers: List[(String, String)]): WSResponse =
     wsClient
       .url(urlString)
-      .withHttpHeaders(headers: _*)
+      .withHttpHeaders(headers*)
       .post(jsonBody)
       .futureValue
 
   def doPut(urlString: String, jsonBody: String, headers: List[(String, String)]): WSResponse =
     wsClient
       .url(urlString)
-      .withHttpHeaders(headers: _*)
+      .withHttpHeaders(headers*)
       .put(jsonBody)
       .futureValue
 
   def doGet(urlString: String, headers: List[(String, String)]): WSResponse =
     wsClient
       .url(urlString)
-      .withHttpHeaders(headers: _*)
+      .withHttpHeaders(headers*)
       .get()
       .futureValue
 
   def callUpdateCallbackUrlEndpoint(boxId: BoxId, jsonBody: String, headers: List[(String, String)]): WSResponse =
     wsClient
       .url(s"$url/box/${boxId.value.toString}/callback")
-      .withHttpHeaders(headers: _*)
+      .withHttpHeaders(headers*)
       .put(jsonBody)
       .futureValue
 

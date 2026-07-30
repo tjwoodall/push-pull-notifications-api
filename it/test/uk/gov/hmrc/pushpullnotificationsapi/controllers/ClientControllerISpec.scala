@@ -31,7 +31,7 @@ import uk.gov.hmrc.pushpullnotificationsapi.repository.models.DbClient
 import uk.gov.hmrc.pushpullnotificationsapi.support.{MongoApp, ServerBaseISpec}
 
 class ClientControllerISpec extends ServerBaseISpec with BeforeAndAfterEach with MongoApp[DbClient] {
-  this: Suite with ServerProvider =>
+  this: Suite & ServerProvider =>
 
   def repo: ClientRepository =
     app.injector.instanceOf[ClientRepository]
@@ -65,11 +65,13 @@ class ClientControllerISpec extends ServerBaseISpec with BeforeAndAfterEach with
   def doGet(path: String, headers: List[(String, String)]): WSResponse =
     wsClient
       .url(s"$url$path")
-      .withHttpHeaders(headers: _*)
+      .withHttpHeaders(headers*)
       .get()
       .futureValue
 
   "GET /client/:clientId/secrets" should {
+    import play.api.libs.ws.WSBodyReadables.readableAsString
+
     "respond with 200 and the array of secrets for the requested client" in {
       await(repo.findOrCreateClient(client))
 

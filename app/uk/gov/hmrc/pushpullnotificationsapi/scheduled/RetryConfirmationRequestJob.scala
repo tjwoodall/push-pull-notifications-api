@@ -19,7 +19,7 @@ package uk.gov.hmrc.pushpullnotificationsapi.scheduled
 import java.time.{Clock, Duration, Instant}
 import javax.inject.Inject
 import scala.concurrent.Future.successful
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -28,46 +28,47 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 
 import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.mongo.lock.{LockService, MongoLockRepository}
+import uk.gov.hmrc.mongo.lock.MongoLockRepository
 
 import uk.gov.hmrc.apiplatform.modules.common.services.ClockNow
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.ConfirmationStatus
 import uk.gov.hmrc.pushpullnotificationsapi.repository.ConfirmationRepository
 import uk.gov.hmrc.pushpullnotificationsapi.repository.models.ConfirmationRequest
+import uk.gov.hmrc.pushpullnotificationsapi.scheduling.*
 import uk.gov.hmrc.pushpullnotificationsapi.services.ConfirmationService
+import uk.gov.hmrc.pushpullnotificationsapi.util.ApplicationLogger
 
 @Singleton
 class RetryConfirmationRequestJob @Inject() (
-    mongoLockRepository: MongoLockRepository,
+    val mongoLockRepository: MongoLockRepository,
     jobConfig: RetryConfirmationRequestJobConfig,
     repo: ConfirmationRepository,
     service: ConfirmationService,
     val clock: Clock
-  )(implicit mat: Materializer)
-    extends ScheduledMongoJob with ClockNow {
+  )(using Materializer)
+    extends ExclusiveLockedScheduledJob with ClockNow with ApplicationLogger {
 
   override def name: String = "RetryConfirmationRequestJob"
   override def interval: FiniteDuration = jobConfig.interval
   override def initialDelay: FiniteDuration = jobConfig.initialDelay
   override val isEnabled: Boolean = jobConfig.enabled
-  implicit val hc: HeaderCarrier = HeaderCarrier()
-  lazy override val lockKeeper: LockService = LockService(mongoLockRepository, lockId = "RetryConfirmationRequestJob", ttl = 1.hour)
+  given HeaderCarrier = HeaderCarrier()
 
-  override def runJob(implicit ec: ExecutionContext): Future[RunningOfJobSuccessful] = {
+  override def executeInLock(using ExecutionContext): Future[String] = {
     val retryAfterDateTime: Instant = instant
 
     repo
       .fetchRetryableConfirmations(retryAfterDateTime)
       .runWith(Sink.foreachAsync[ConfirmationRequest](jobConfig.parallelism)(retryConfirmation(_, retryAfterDateTime)))
-      .map(_ => RunningOfJobSuccessful)
+      .map(_ => "Successful")
       .recoverWith {
         case NonFatal(e) =>
           logger.error("Failed to retry failed push pull confirmation", e)
-          Future.failed(RunningOfJobFailed(name, e))
+          Future.failed(e)
       }
   }
 
-  private def retryConfirmation(confirmation: ConfirmationRequest, retryAfterDateTime: Instant)(implicit ec: ExecutionContext): Future[Unit] = {
+  private def retryConfirmation(confirmation: ConfirmationRequest, retryAfterDateTime: Instant)(using ExecutionContext): Future[Unit] = {
     service
       .sendConfirmation(confirmation)
       .flatMap(success => if (success) successful(()) else updateFailedNotification(confirmation, retryAfterDateTime))
@@ -78,7 +79,7 @@ class RetryConfirmationRequestJob @Inject() (
       }
   }
 
-  private def updateFailedNotification(confirmation: ConfirmationRequest, retryAfterDateTime: Instant)(implicit ec: ExecutionContext): Future[Unit] = {
+  private def updateFailedNotification(confirmation: ConfirmationRequest, retryAfterDateTime: Instant)(using ExecutionContext): Future[Unit] = {
     if (confirmation.createdDateTime.isAfter(retryAfterDateTime.minus(Duration.ofHours(jobConfig.numberOfHoursToRetry)))) {
       repo.updateRetryAfterDateTime(confirmation.notificationId, retryAfterDateTime).map(_ => ())
     } else {

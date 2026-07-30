@@ -29,15 +29,16 @@ import org.scalatestplus.play.guice.GuiceOneAppPerSuite
 
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
+import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits.ObservableFuture
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import uk.gov.hmrc.apiplatform.modules.common.domain.models.{ApplicationId, ClientId}
 import uk.gov.hmrc.apiplatform.modules.common.utils.FixedClock
 import uk.gov.hmrc.pushpullnotificationsapi.AsyncHmrcSpec
-import uk.gov.hmrc.pushpullnotificationsapi.models._
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.MessageContentType.APPLICATION_JSON
-import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationStatus._
+import uk.gov.hmrc.pushpullnotificationsapi.models.*
+import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.MessageContentType.*
+import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.NotificationStatus.*
 import uk.gov.hmrc.pushpullnotificationsapi.models.notifications.{Notification, NotificationId, NotificationStatus, RetryableNotification}
 import uk.gov.hmrc.pushpullnotificationsapi.services.NotificationPushService
 import uk.gov.hmrc.pushpullnotificationsapi.testData.TestData
@@ -61,7 +62,7 @@ class BoxRepositoryISpec
       )
 
   override implicit lazy val app: Application = appBuilder.build()
-  implicit def mat: Materializer = app.injector.instanceOf[Materializer]
+  given Materializer = app.injector.instanceOf[Materializer]
 
   def repo: BoxRepository = app.injector.instanceOf[BoxRepository]
   def notificationsRepo: NotificationsRepository = app.injector.instanceOf[NotificationsRepository]
@@ -140,7 +141,7 @@ class BoxRepositoryISpec
 
       val result2 = await(repo.createBox(Box(BoxId.random, boxName, BoxCreator(clientId))))
       result2.isInstanceOf[BoxCreateFailedResult] shouldBe true
-      val fetchedRecords = await(repo.collection.find().toFuture())
+      val fetchedRecords = await(repo.collection.find().headOption())
       fetchedRecords.size shouldBe 1
     }
 
